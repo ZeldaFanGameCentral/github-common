@@ -2,7 +2,11 @@ name: Auto Merge Dependabot Security Updates
 on:
   pull_request:
     types: [labeled, opened, synchronize]
-
+    
+permissions:
+  contents: read
+  pull-requests: write
+  
 jobs:
   call-automerge:
     uses: ./.github/workflows/auto-merge-dependabot-reusable.yml
