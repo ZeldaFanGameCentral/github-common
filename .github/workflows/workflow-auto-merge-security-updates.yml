@@ -1,0 +1,78 @@
+name: Auto-merge Dependabot Security Updates (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      ci_workflow_name:
+        description: "The name of the CI workflow to wait for"
+        required: true
+        type: string
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Get PR from latest workflow run
+        uses: actions/github-script@v7
+        id: get_pr
+        with:
+          script: |
+            const run_id = context.payload.workflow_run?.id;
+            if (!run_id) {
+              core.setFailed("No workflow_run ID found.");
+              return;
+            }
+
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: run_id,
+            });
+
+            const prs = run.data.pull_requests;
+            if (prs.length === 0) {
+              core.setFailed("No PR associated with this workflow run.");
+              return;
+            }
+
+            const pr = prs[0];
+            core.setOutput("pr_number", pr.number);
+            core.setOutput("pr_user", pr.user.login);
+            core.setOutput("pr_url", pr.html_url);
+
+      - name: Check if PR is from Dependabot and has security label
+        id: check
+        run: |
+          PR_NUMBER=${{ steps.get_pr.outputs.pr_number }}
+          PR_USER=${{ steps.get_pr.outputs.pr_user }}
+
+          echo "PR number: $PR_NUMBER"
+          echo "PR user: $PR_USER"
+
+          if [ "$PR_USER" != "dependabot[bot]" ]; then
+            echo "Not a Dependabot PR."
+            echo "continue=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          LABELS=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name')
+          echo "Labels: $LABELS"
+
+          if echo "$LABELS" | grep -iq "security"; then
+            echo "continue=true" >> $GITHUB_OUTPUT
+          else
+            echo "continue=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-merge PR
+        if: steps.check.outputs.continue == 'true'
+        run: |
+          gh pr merge ${{ steps.get_pr.outputs.pr_number }} --auto --merge --delete-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
