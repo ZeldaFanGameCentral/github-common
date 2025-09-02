@@ -59,7 +59,7 @@ jobs:
  
       - name: Upload build artifact
         if: ${{ inputs.deployment_target == 'github-pages' }}
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           name: ${{ inputs.environment }}-build
           path: build/client
