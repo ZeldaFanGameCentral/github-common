@@ -2,11 +2,13 @@ name: Auto Merge Dependabot Security Updates
 on:
   pull_request:
     types: [labeled, opened, synchronize]
-    
-permissions:
-  contents: write
-  pull-requests: write
   
 jobs:
   call-automerge:
-    uses: ./.github/workflows/workflow-auto-merge-security-updates.yml
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Automerge Dependabot PRs
+        uses: ./github/actions/auto-approve-dependabot

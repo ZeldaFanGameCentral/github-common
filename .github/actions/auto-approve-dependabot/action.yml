@@ -1,0 +1,33 @@
+name: 'Auto approve dependabot PRs'
+description: 'Automatically approve dependabot PRs'
+runs:
+  using: 'composite'
+  steps:
+    - name: Check if run is triggered by dependabot
+      run: |
+        if [[ "${{github.event_name}}" == "pull_request" ]]; then
+          echo "is_dependabot_pr=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_dependabot_pr=false" >> $GITHUB_OUTPUT
+          echo "Workflow is not triggered by dependabot PR, skipping"
+        fi
+      id: is-dependabot-pr
+      shell: bash
+
+    - name: Fetch dependabot metadata
+      if: steps.is-dependabot-pr.outputs.is_dependabot_pr == 'true'
+      id: dependabot-metadata
+      uses: dependabot/fetch-metadata@v2
+      with:
+        github-token: "${{ github.token }}"
+        alert-lookup: true
+        compat-lookup: true
+
+    - name: Auto approve dependabot PRs
+      if: steps.is-dependabot-pr.outputs.is_dependabot_pr == 'true' && github.event.pull_request.user.login == 'dependabot[bot]'
+      shell: bash
+      run: |
+        gh pr merge --auto --merge "${{github.event.pull_request.html_url}}"
+      env:
+        PR_URL: ${{github.event.pull_request.html_url}}
+        GITHUB_TOKEN: ${{github.token}}
