@@ -13,4 +13,4 @@ jobs:
       pull-requests: write
     steps:
       - name: Automerge Dependabot PRs
-        uses: ./github/actions/auto-approve-dependabot
+        uses: ZFGCCP/.github/.github/actions/auto-approve-dependabot@main
