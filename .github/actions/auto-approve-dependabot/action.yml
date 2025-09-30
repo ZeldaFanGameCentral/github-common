@@ -1,12 +1,19 @@
+# Documentation can be found at file://./README.md
 name: 'Auto approve dependabot PRs'
 description: 'Automatically approve dependabot PRs'
+inputs:
+  github-token:
+    description: 'GitHub token'
+    required: false
+    default: ${{ github.token }}
 runs:
   using: 'composite'
   steps:
     - name: Check if run is triggered by dependabot
       run: |
-        if [[ "${{github.event_name}}" == "pull_request" ]]; then
+        if [[ "${{github.event.pull_request.user.login}}" == "dependabot[bot]" ]]; then
           echo "is_dependabot_pr=true" >> $GITHUB_OUTPUT
+          echo "Workflow is triggered by dependabot PR, continuing"
         else
           echo "is_dependabot_pr=false" >> $GITHUB_OUTPUT
           echo "Workflow is not triggered by dependabot PR, skipping"
@@ -27,7 +34,8 @@ runs:
       if: steps.is-dependabot-pr.outputs.is_dependabot_pr == 'true' && github.event.pull_request.user.login == 'dependabot[bot]'
       shell: bash
       run: |
-        gh pr merge --auto --merge "${{github.event.pull_request.html_url}}"
+        echo "Approved PR: ${{ github.event.pull_request.html_url }}"
+        gh pr merge --auto --rebase "${{github.event.pull_request.html_url}}"
       env:
         PR_URL: ${{github.event.pull_request.html_url}}
-        GITHUB_TOKEN: ${{github.token}}
+        GITHUB_TOKEN: ${{inputs.github-token}}
