@@ -44,10 +44,15 @@ jobs:
           node-version-file: .nvmrc
           cache: yarn
 
-      - if: ${{ steps.yarn-cache.outputs.cache-hit != 'true' }}
+      - if: ${{ steps.yarn-cache.outputs.cache-hit != 'true' && github.event.pull_request.user.login != 'dependabot[bot]' }}
         run: yarn install --immutable
 
-      - if: ${{ steps.yarn-cache.outputs.cache-hit == 'true' }}
+        
+      - name: Dependabutt Override yarn cache
+        if: ${{ steps.yarn-cache.outputs.cache-hit != 'true' && github.event.pull_request.user.login == 'dependabot[bot]' }}
+        run: yarn install
+
+      - if: ${{ steps.yarn-cache.outputs.cache-hit == 'true'  }}
         run: yarn install --immutable --immutable-cache
 
       - run: yarn build --mode="${{ inputs.deployment_target }}"
