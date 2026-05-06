@@ -1,0 +1,113 @@
+name: "[Workflow]: Bump ArgoCD image tag"
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+        description: "App name (e.g., zfgbb, zfgbb-react)"
+      env_label:
+        required: true
+        type: string
+        description: "Environment label (e.g., prod, dev)"
+      deployment_dir:
+        required: true
+        type: string
+        description: "Directory containing deployment.yaml relative to argocd repo root (e.g., apps/zfgbb/main)"
+      tag:
+        required: true
+        type: string
+        description: "New image tag to set"
+      source_repo:
+        required: false
+        type: string
+        default: ${{ github.repository }}
+        description: "Source repo that triggered the bump (for PR body)"
+      source_sha:
+        required: false
+        type: string
+        default: ${{ github.sha }}
+        description: "Source commit SHA (for PR body)"
+      source_ref:
+        required: false
+        type: string
+        default: ${{ github.ref_name }}
+        description: "Source branch name (for PR body)"
+    secrets:
+      BUMP_APP_ID:
+        required: true
+      BUMP_APP_PRIVATE_KEY:
+        required: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate App installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.BUMP_APP_ID }}
+          private-key: ${{ secrets.BUMP_APP_PRIVATE_KEY }}
+          owner: ZeldaFanGameCentral
+          repositories: argocd.zfgc.com
+
+      - name: Checkout argocd repo
+        uses: actions/checkout@v6
+        with:
+          repository: ZeldaFanGameCentral/argocd.zfgc.com
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Bump image tag
+        id: bump
+        env:
+          APP: ${{ inputs.app }}
+          NEW_TAG: ${{ inputs.tag }}
+          DEPLOY_DIR: ${{ inputs.deployment_dir }}
+        run: |
+          set -euo pipefail
+          file="${DEPLOY_DIR}/deployment.yaml"
+          old_tag=$(grep -oE "${APP}:[A-Za-z0-9._-]+" "$file" | head -1 | cut -d: -f2)
+          if [[ "$old_tag" == "$NEW_TAG" ]]; then
+            echo "tag already $NEW_TAG; nothing to bump"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          sed -i -E "s|image: ghcr\\.io/zeldafangamecentral/${APP}:[A-Za-z0-9._-]+|image: ghcr.io/zeldafangamecentral/${APP}:${NEW_TAG}|" "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+          echo "old_tag=$old_tag" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update PR
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP: ${{ inputs.app }}
+          ENV_LABEL: ${{ inputs.env_label }}
+          NEW_TAG: ${{ inputs.tag }}
+          OLD_TAG: ${{ steps.bump.outputs.old_tag }}
+          BUMP_FILE: ${{ steps.bump.outputs.file }}
+          SOURCE_REPO: ${{ inputs.source_repo }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          branch="bump/${APP}-${ENV_LABEL}"
+          title="Bump ${APP} (${ENV_LABEL}) image to ${NEW_TAG}"
+          body="Automated bump from \`${OLD_TAG}\` to \`${NEW_TAG}\` in \`${BUMP_FILE}\`. Built from \`${SOURCE_REPO}@${SOURCE_SHA}\` on \`${SOURCE_REF}\`."
+
+          git config user.name "${APP}-release-bot[bot]"
+          git config user.email "${APP}-release-bot[bot]@users.noreply.github.com"
+
+          git checkout -B "$branch"
+          git add "$BUMP_FILE"
+          git commit -m "$title"
+          git push --force -u origin "$branch"
+
+          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$existing_pr" ]]; then
+            gh pr edit "$existing_pr" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body "$body"
+          fi

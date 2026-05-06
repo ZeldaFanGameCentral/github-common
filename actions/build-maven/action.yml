@@ -1,0 +1,22 @@
+name: Build Maven Project
+description: >
+  Sets up a JDK via Temurin and runs a Maven build with dependency caching.
+
+inputs:
+  java-version:
+    description: JDK version to install
+    required: false
+    default: "21"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v5
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: temurin
+        architecture: x64
+        cache: maven
+
+    - run: mvn clean compile package -Dmaven.test.skip=true
+      shell: bash

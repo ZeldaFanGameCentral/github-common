@@ -1,0 +1,33 @@
+name: Setup Node.js + Yarn
+description: >
+  Installs Node.js (version from .nvmrc), enables Corepack, and runs
+  yarn install with cache. Handles the setup-node yarn cache workaround
+  and Dependabot lockfile flexibility.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: .nvmrc
+
+    - run: npm install -g corepack@latest && corepack enable
+      shell: bash
+
+    - uses: actions/setup-node@v6
+      id: yarn-cache
+      with:
+        node-version-file: .nvmrc
+        cache: yarn
+
+    - if: steps.yarn-cache.outputs.cache-hit != 'true' && github.event.pull_request.user.login != 'dependabot[bot]'
+      run: yarn install --immutable
+      shell: bash
+
+    - if: steps.yarn-cache.outputs.cache-hit != 'true' && github.event.pull_request.user.login == 'dependabot[bot]'
+      run: yarn install
+      shell: bash
+
+    - if: steps.yarn-cache.outputs.cache-hit == 'true'
+      run: yarn install --immutable --immutable-cache
+      shell: bash
