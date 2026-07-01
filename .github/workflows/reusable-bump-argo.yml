@@ -53,7 +53,7 @@ jobs:
           repositories: argocd.zfgc.com
 
       - name: Checkout argocd repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ZeldaFanGameCentral/argocd.zfgc.com
           ref: main
