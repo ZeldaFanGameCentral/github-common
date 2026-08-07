@@ -1,0 +1,28 @@
+name: Resolve Build Version
+description: >
+  Resolves a human-readable build version from git tags.
+  Tagged commits resolve to the tag itself (e.g. 2026.05.03.1); commits past a tag
+  resolve to <tag>-<commits-since>-g<sha>; a repo with no reachable tag falls back
+  to the short sha. Safe on the shallow clone actions/checkout produces by default.
+
+outputs:
+  version:
+    description: The resolved version string
+    value: ${{ steps.describe.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - id: describe
+      shell: bash
+      run: |
+        set -euo pipefail
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
+          git fetch --tags --unshallow --quiet || git fetch --tags --quiet || true
+        else
+          git fetch --tags --quiet || true
+        fi
+        version="$(git describe --tags --always --dirty 2>/dev/null || echo "${GITHUB_SHA::12}")"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "Resolved build version: $version"
