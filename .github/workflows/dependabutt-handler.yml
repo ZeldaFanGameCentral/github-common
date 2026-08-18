@@ -13,4 +13,4 @@ jobs:
       pull-requests: write
     steps:
       - name: Automerge Dependabot PRs
-        uses: ZFGCCP/github-common/actions/auto-approve-dependabot@main
+        uses: ZeldaFanGameCentral/github-common/actions/auto-approve-dependabot@main
