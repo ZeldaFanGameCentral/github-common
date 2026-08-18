@@ -7,14 +7,14 @@ description: >
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version-file: .nvmrc
 
     - run: npm install -g corepack@latest && corepack enable
       shell: bash
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       id: yarn-cache
       with:
         node-version-file: .nvmrc
